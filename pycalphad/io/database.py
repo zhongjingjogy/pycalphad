@@ -136,7 +136,7 @@ class Database(object): #pylint: disable=R0902
         """
         self._structure_dict[local_name] = global_name
     def add_parameter(self, param_type, phase_name, #pylint: disable=R0913
-                      constituent_array, param_order,
+                      constituent_array, param_tag, param_order,
                       param, ref=None):
         """
         Add a parameter.
@@ -149,6 +149,8 @@ class Database(object): #pylint: disable=R0902
             Name of the phase.
         constituent_array : list
             Configuration of the sublattices (elements and/or species).
+        param_tag : str
+            The indetification for mobility parameter, e.g, MQ, MF 
         symbol : object
             Abstract representation of the parameter, e.g., in SymPy format.
 
@@ -160,6 +162,7 @@ class Database(object): #pylint: disable=R0902
             'phase_name': phase_name,
             'constituent_array': constituent_array,
             'parameter_type': param_type,
+            'parameter_tag': param_tag,
             'parameter_order': param_order,
             'parameter': param,
             'reference': ref

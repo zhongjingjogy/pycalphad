@@ -109,7 +109,7 @@ def _tdb_grammar(): #pylint: disable=R0914
     float_number = Regex(r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?') \
         .setParseAction(lambda t: [float(t[0])])
     # symbol name, e.g., phase name, function name
-    symbol_name = Word(alphanums+'_:', min=1)
+    symbol_name = Word(alphanums+'_:&', min=1)
     # species name, e.g., CO2, AL, FE3+
     species_name = Word(alphanums+'+-*', min=1) + Optional(Suppress('%'))
     # constituent arrays are semicolon-delimited
@@ -120,7 +120,8 @@ def _tdb_grammar(): #pylint: disable=R0914
                            ), ':')
         )
     param_types = TCCommand('G') | TCCommand('L') | \
-                  TCCommand('TC') | TCCommand('BMAGN')
+                  TCCommand('TC') | TCCommand('BMAGN') | \
+                  TCCommand('MQ') | TCCommand('MF')
     # Let sympy do heavy arithmetic / algebra parsing for us
     # a convenience function will handle the piecewise details
     func_expr = Optional(float_number) + OneOrMore(SkipTo(';') \
@@ -226,10 +227,14 @@ def _process_parameter(targetdb, param_type, phase_name, #pylint: disable=R0913
     """
     Process the PARAMETER command.
     """
+    mtag = ''
+    if param_type in ['MQ', 'MF']:
+        mtag = phase_name.split('&')[1]
+        phase_name = phase_name.split('&')[0]
     targetdb.add_parameter(param_type, phase_name.upper(),
                            [[c.upper() for c in lx]
                             for lx in constituent_array.asList()],
-                           param_order, param, ref)
+                           mtag, param_order, param, ref)
 
 def _unimplemented(*args, **kwargs): #pylint: disable=W0613
     """
