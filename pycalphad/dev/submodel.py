@@ -4,11 +4,12 @@ calculations under specified conditions.
 """
 from __future__ import division
 import copy
-from sympy import log, Add, Mul, Piecewise, Pow, S, Symbol
+from sympy import log, Add, Mul, Piecewise, Pow, S, Symbol, exp
 from tinydb import where
 import pycalphad.variables as v
 from pycalphad.log import logger
 from pycalphad.io.database import Database
+from pycalphad.io.utils import print_ccode
 try:
     set
 except NameError:
@@ -56,7 +57,7 @@ class SubModel(object):
             except AttributeError:
                 # Can't use xreplace on a float
                 pass
-        self.build_phase(dbe, phase.upper(), symbols, dbe.search)
+        self.ast = self.build_phase(dbe, phase.upper(), symbols, dbe.search)
     def _purity_test(self, constituent_array):
         """
         Check if constituent array only has one species in its array
@@ -234,11 +235,24 @@ class SubModel(object):
         mobility = {}
         # First, build the reference energy term
         for eachcom in self.components:
-            print eachcom
-            mobility[eachcom] = self.reference_energy(phase, symbols, eachcom, param_search)
-            mobility[eachcom] += self.excess_mixing_energy(phase, symbols, eachcom, param_search)
-        print mobility
-    def reference_energy(self, phase, symbols, param_tag, param_search):
+            
+            mf = self.pure_contribution(
+                phase, symbols, eachcom, "MF", param_search
+            )
+            mf += self.excess_mixing_energy(
+                phase, symbols, eachcom, "MF", param_search
+            )
+            mq = self.pure_contribution(
+                phase, symbols, eachcom, "MQ", param_search
+            )
+            mq += self.excess_mixing_energy(
+                phase, symbols, eachcom, "MQ", param_search
+            )
+            mf = mf == S.Zero and S.One or mf
+            mobility[eachcom] = mf*exp(mq/v.R/v.T)/v.R/v.T
+        return mobility
+    def pure_contribution(self, phase, symbols, param_tag,
+        param_type, param_search):
         """
         Returns the weighted average of the endmember energies
         in symbolic form.
@@ -249,7 +263,7 @@ class SubModel(object):
         pure_param_query = (
             (where('phase_name') == phase.name) & \
             (where('parameter_order') == 0) & \
-            (where('parameter_type') == 'MQ') & \
+            (where('parameter_type') == param_type) & \
             (where('parameter_tag') == param_tag) & \
             (where('constituent_array').test(self._purity_test))
         )
@@ -282,7 +296,8 @@ class SubModel(object):
                 site_fraction_product * param['parameter'].xreplace(symbols)
             ) / site_ratio_normalization
         return pure_energy_term
-    def excess_mixing_energy(self, phase, symbols, param_tag, param_search):
+    def excess_mixing_energy(self, phase, symbols, param_tag, 
+        param_type, param_search):
         """
         Build the binary, ternary and higher order interaction term
         Here we use Redlich-Kister polynomial basis by default
@@ -298,10 +313,7 @@ class SubModel(object):
 
         interaction_param_query = (
             (where('phase_name') == phase.name) & \
-            (
-                (where('parameter_type') == "MQ") | \
-                (where('parameter_type') == "MF")
-            ) & \
+            (where('parameter_type') == param_type) & \
             (where('param_tag') == param_tag) & \
             (where('constituent_array').test(self._interaction_test))
         )
@@ -389,8 +401,10 @@ class SubModel(object):
                         not yet supported')
             excess_mixing_terms.append(mixing_term * \
                 param['parameter'].xreplace(symbols))
-        return Add(*excess_mixing_terms) / site_ratio_normalization                    
+        return Add(*excess_mixing_terms)/site_ratio_normalization                  
 if __name__ == "__main__":
     import submodel_plugin as plugin
+    
     DBF = Database(plugin.TDB_TEST_STRING)
     submodel = SubModel(DBF, ["AL", "CU", "SI", "VA"], "FCC_A1")
+    print submodel.ast
