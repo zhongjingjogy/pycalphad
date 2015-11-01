@@ -235,7 +235,7 @@ class SubModel(object):
         mobility = {}
         # First, build the reference energy term
         for eachcom in self.components:
-            
+
             mf = self.pure_contribution(
                 phase, symbols, eachcom, "MF", param_search
             )
@@ -249,7 +249,7 @@ class SubModel(object):
                 phase, symbols, eachcom, "MQ", param_search
             )
             mf = mf == S.Zero and S.One or mf
-            mobility[eachcom] = mf*exp(mq/v.R/v.T)/v.R/v.T
+            mobility[eachcom] = exp(mf/v.R/v.T)*exp(mq/v.R/v.T)/v.R/v.T
         return mobility
     def pure_contribution(self, phase, symbols, param_tag,
         param_type, param_search):
@@ -296,7 +296,7 @@ class SubModel(object):
                 site_fraction_product * param['parameter'].xreplace(symbols)
             ) / site_ratio_normalization
         return pure_energy_term
-    def excess_mixing_energy(self, phase, symbols, param_tag, 
+    def excess_mixing_energy(self, phase, symbols, param_tag,
         param_type, param_search):
         """
         Build the binary, ternary and higher order interaction term
@@ -401,10 +401,10 @@ class SubModel(object):
                         not yet supported')
             excess_mixing_terms.append(mixing_term * \
                 param['parameter'].xreplace(symbols))
-        return Add(*excess_mixing_terms)/site_ratio_normalization                  
+        return Add(*excess_mixing_terms)/site_ratio_normalization
 if __name__ == "__main__":
     import submodel_plugin as plugin
-    
+
     DBF = Database(plugin.TDB_TEST_STRING)
     submodel = SubModel(DBF, ["AL", "CU", "SI", "VA"], "FCC_A1")
     print submodel.ast
